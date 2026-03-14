@@ -5,6 +5,7 @@
 PriceTracker is a full-stack, production-grade web application that aggregates product prices from multiple e-commerce sources into a single interface. Built with a distributed background scraping pipeline, intelligent caching, and an AI shopping assistant powered by Google Gemini — it solves the real problem of fragmented online shopping by bringing all the data to one place.
 
 ---
+> 🌐 [View Portfolio Page →](https://nagamanibuddepu.github.io/PriceTracker)
 
 ## What It Does
 
