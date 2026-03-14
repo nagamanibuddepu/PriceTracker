@@ -1,57 +1,76 @@
-# Project Features & Documentation
+# 🛒 StreetSolve: Advanced E-Commerce Price Comparison Engine
 
-## Features and Functionalities
-1. **Real-Time Cross-Platform Searching**: Simultaneously pulls data across leading Indian e-commerce hubs (Amazon, Flipkart, Myntra, etc.) to list current live prices.
-2. **Infinite Pagination & Product Normalization**: Strips away generic formatting keywords so variant matching applies to identical SKUs across stores, presented gracefully in an infinite scroll feed.
-3. **Advanced "View Deal" Redirection**: Decrypts Google Shopping payload redirects to send the user precisely to the actual merchant's valid webpage, bypassing the Search Engine result layer.
-4. **AI-Powered "Style & Deal" Chatbot Assistant**: Integrated with the `Google Gemini` LLM to answer contextual fashion, specification, and shopping questions from the site using semantic APIs.
-5. **Modern Premium Aesthetic**:
-    - Complete support for Light Mode and Deep Navy/Electric Indigo Dark Mode.
-    - Floating bento-grid cards with interactive, hardware-accelerated Framer Motion transitions and pure CSS Mesh Keyframe loops.
-    - Fully accessible ARIA semantics natively handled with `radix-ui`.
-6. **Background Asynchronous Workers (BullMQ + Redis)**: Scrapes the APIs completely in the background to avoid 30s Serverless Execution timeouts, streaming status directly back to the React UI via periodic polling.
+## 📖 What is this Project?
+This project is a high-performance, real-time **Price Comparison and Tracking Engine**. It behaves as an aggregator, scraping leading e-commerce websites (Amazon, Flipkart, Myntra, Nykaa, etc.) to fetch the live prices of any requested product. It then normalizes, groups, and displays these products side-by-side, allowing users to instantly find the absolute lowest price across the internet.
 
----
+## 🎯 Need for this Project
+In today's highly fragmented e-commerce market, prices for the exact same product naturally fluctuate wildly between different platforms due to dynamic pricing algorithms, flash sales, and platform-specific discounts. 
+Consumers are forced to manually open dozens of tabs to compare prices, wasting time and often missing out on the best deals. This project solves that problem by providing a single, unified interface that does the heavy lifting instantly.
 
-## Tech Stack & Design Choices
-
-| Area | Technologies | Reasoning |
-|---|---|---|
-| **Frontend Framework** | Next.js (App Router), React 18 | Excellent server-side rendering for SEO. Clean routing and simplified server actions out-of-the-box. |
-| **Styling & UI Components** | Tailwind CSS, Shadcn/UI, Radix | Enables creating ultra-premium glassmorphism and bento grids easily without heavy CSS bundles. Accessible hooks out-of-the-box. |
-| **Data Processing** | BullMQ, Redis, Node.js Worker (`tsx`) | Because web scraping operations from Python microservices or remote headless browsers take arbitrarily long (~10-30s), a job queue guarantees requests aren't randomly dropped due to Vercel/NextJS routing timeouts. |
-| **Database & ORM** | MongoDB | Stores robust structured caches of search payloads and users' Price Alerts / Wishlist preferences. |
-| **Web Scraping & APIs** | Puppeteer, Cheerio, SerpAPI, RapidAPI | Instead of building anti-bot avoidance manually, utilizing external proxy pipelines manages recaptcha walls seamlessly, providing HTML that Cheerio quickly parses. |
-| **AI Integration** | Google Generative AI (Gemini 2.5 Flash) | Superior text generation latency which handles conversational chat flawlessly. |
+## 🚀 Objectives
+1. **Instant Convergence:** To provide a single search bar that queries the entire Indian internet for a specific product.
+2. **Data Normalization:** To intelligently group identical SKUs (e.g., matching the "iPhone 15 128GB Black" from Amazon with the exact same model on Flipkart), despite differing titles.
+3. **Price Tracking:** To algorithmically build a historical database of price fluctuations so users understand if they are getting a good deal right now.
+4. **Intelligent Assistance:** To provide an AI chatbot that can guide users on purchase decisions, specifications, or summarize reviews.
 
 ---
 
-## What is at its best?
-* **UI/UX Aesthetics**: The dark mode palette combined with animated micro-interactions natively competes with premium SaaS or E-commerce native apps.
-* **Component Modularity**: Every major block (`AI-Chatbot`, `Enhanced-Search`, `Product-Comparison`) is functionally decoupled, making it exceedingly easy to rewrite backend calls or switch external providers without touching the frontend.
-* **Robust Redirection**: Safe fallback wrappers protect users handling broken scraper links inside the `ProductComparison` layout.
+## 🛠️ Tech Stack & Architecture
 
-## What has to be improved?
-* **Strict Scraping Limits**: Hitting 5+ endpoints per query currently dictates API exhaustion risk. Caching is present via Redis, but could be enhanced utilizing aggressive Static Gen policies from Next.js caching tools.
-* **Normalization Engine**: Machine Learning approaches (like simple vector similarity) could yield a higher accuracy group of product groupings compared to regex-based text trimming.
-* **Price Alert Polling Mechanism**: The current CRON alerts pull the database iteratively on a timer. Webhooks direct from retail data providers would be vastly lighter.
+### **Frontend layer**
+- **Next.js 14 (App Router):** Chosen for its exceptional Server-Side Rendering (SSR) capabilities which are crucial for e-commerce SEO, and its native support for React Server Components.
+- **React 18:** For building concurrent, highly interactive UI components like infinite scrolling arrays and tabbed data views.
+- **Tailwind CSS & Shadcn/UI:** Utilized to build a stunning, performant "glassmorphism" aesthetic with dark/light mode support without shipping heavy CSS bundles.
+- **Recharts:** Selected for rendering lightweight, interactive SVG-based price history line charts natively inside React.
+
+### **Backend layer**
+- **Node.js & Next Server Actions:** Serverless functions handle the secure routing of API requests without exposing sensitive keys to the browser.
+- **BullMQ & Redis (ioredis):** *Crucial architectural choice.* Web scraping takes 10-20 seconds. Standard Serverless functions timeout after 10s. By using a Redis-backed message queue (BullMQ) running on a separate Worker (`scripts/worker.ts`), we can process heavy scraping tasks in the background asynchronously and stream partial progress back to the UI.
+- **Puppeteer & Cheerio:** Used for headless browser automation and lightning-fast HTML DOM traversal to parse product names, prices, and images out of the scraped websites.
+- **External Scraper APIs (ScrapingBee, ZenRows, SerpAPI):** Since Amazon and Flipkart heavily employ bot-protection (Cloudflare, reCAPTCHA), these premium rotating-proxy networks are used to bypass blocks and deliver raw HTML.
+- **Google Generative AI (Gemini 1.5):** Powers the contextual shopping assistant chatbot due to its high speed and generous free-tier limits.
+
+### **Database layer**
+- **MongoDB:** A NoSQL approach is perfect here because the shape of scraped data (specifications, nested reviews, varying image arrays) is highly unstructured and differs wildly between Flipkart vs. Myntra. It stores our 12-hour `searchCache` and our `priceHistory` timeline.
 
 ---
 
-## Deployment Strategy & API Key Protection
+## ✨ Features Implemented
 
-> Deploying a project involving so many APIs is tough as public usage can rapidly exceed Free Tiers. 
+1. **Progressive Search Streaming:** As the background worker finishes scraping Amazon, it immediately streams those results to the UI. It doesn't wait for Flipkart to finish. This creates a highly responsive feeling.
+2. **Algorithmic Grouping:** A custom utility scrubs brand names, capacities, and colors to mathematically group identical products together in a unified card.
+3. **Price Tracking & Mocking:** 30-day historical line charts are drawn for products. If a product is newly tracked, the system generates a realistic algorithmic 30-day mock history to populate the chart immediately.
+4. **AI Shopping Assistant:** A floating chat window that maintains conversational context and can advise on products.
+5. **Toggleable Rate Limiter System:** A robust Redis-backed rate limiter that restricts users to 3 searches/hour and 10 chats/hour in "Demo Mode" to protect API costs, bypassing the block for admins via a secret header.
 
-### How to Stay Public, Showcase Work, and Not Get Caught
+---
 
-1. **Keep Secrets Locked**:
-   - `GEMINI_API_KEY`, `MONGODB_URI`, `REDIS_URL` and all Scraper keys **must solely exist in Vercel/Render Environment Variables**. Never commit `.env.local`. I have just swept your `app/actions.ts` file to ensure the hardcoded `ZENROWS` key was completely deleted.
-2. **Aggressive MongoDB/Redis Caching**:
-   - You are securely caching the API lookup results inside the MongoDB `searchCache` database. Do not lower the 12-hour expiry threshold! If multiple users search "iPhone 15", the app retrieves the data from the DB instantly, charging your API limits *zero* times. 
-3. **Limit the Demos**:
-   - Implement an IP rate-limiter, perhaps via `upstash/ratelimit`, tracking searches on the edge middleware. Limit unauthorized users to ~3 searches every hour.
-   - You can inject a banner to the UI: *"Demo limit: 3 searches per IP. You have 2 left."*
-4. **Deploying the Infrastructure**:
-   - **Frontend & App Logic:** Deploy seamlessly to **Vercel** simply by connecting your GitHub repo.
-   - **Background Worker & Redis:** Deploy the `worker.ts` script on **Render.com** (using their background worker tier) or **Railway.app**. It connects to your remote Redis (like **Upstash Redis**).
-   - **Database:** Deploy your MongoDB on **MongoDB Atlas** (Free Tier).
+## 🚧 Challenges & Solutions
+
+### 1. The Serverless Timeout Execution Limit
+* **Challenge:** Vercel/Next.js routes timeout and kill the connection if they take longer than 10-15 seconds. Scraping 6 websites sequentially took 30+ seconds.
+* **Solution:** Extracted the heavy lifting from the frontend API directly into a separated `Node.js` background worker running `BullMQ`. The frontend simply says "start this job" and polls Redis for progress.
+
+### 2. Getting Blocked by E-commerce Firewalls
+* **Challenge:** Directly utilizing `fetch()` or `puppeteer` from our servers resulted in immediate 403 Forbidden Recaptcha walls from Amazon.
+* **Solution:** Integrated ZenRows and ScrapingBee rotating proxy pipelines that natively solve CAPTCHAs before returning the parsed DOM payload to our Cheerio extractors.
+
+### 3. GET Method Body Rejections
+* **Challenge:** Modern strict APIs (like ZenRows) abruptly threw `Request with GET/HEAD method cannot have body` errors, completely breaking the core scraping loop.
+* **Solution:** Refactored the Axios HTTP request interceptors from dynamic configuration objects into strictly typed `axios.get(url, { params })` to guarantee the underlying C++ networking engine dropped any null bodies.
+
+### 4. Hydration & Ghost Server Crashes
+* **Challenge:** The Next.js HMR (Hot Module Reloading) on Windows would corrupt the `.next` cache, throwing `ChunkLoadError` and destroying the UI's interactivity (buttons wouldn't click).
+* **Solution:** Implemented low-level process termination (`taskkill`) to nuke hanging Ghost processes on port 3000, purged the `.next` cache, and rebuilt the AST cleanly.
+
+---
+
+## 🔄 Project Workflow (End-to-End)
+
+1. **User Action (Frontend):** The user types "iPhone 15" and hits Search.
+2. **Rate Limiting Check:** The Next.js API intercepts the request. It checks the user's IP against the Redis `ratelimit:search:{ip}` key. If within limits, it proceeds.
+3. **Job Delegation:** The API pushes the query string into the Redis `scrape-queue` and returns a `jobId` to the browser.
+4. **Background Execution (Worker):** The separated Node.js worker wakes up, grabs the `jobId`, and concurrently fires HTTP requests to ZenRows, ScrapingBee, and SerpAPI.
+5. **Streaming Progress:** As Amazon resolves (e.g., 2 seconds in), the Worker pushes the partial Amazon array into the BullMQ job progress.
+6. **UI Rendering:** The frontend, which has been polling the `/api/scrape/[jobId]` endpoint every 1.5s, sees the progress, parses the JSON, and dynamically expands the React DOM.
+7. **Database Storage:** Once all scrapers resolve, the complete normalized array is cached in MongoDB for 12 hours. Any price differences from historical norms are inserted into the `priceHistory` collection for future graph rendering.
