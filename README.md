@@ -1,129 +1,148 @@
-PriceTracker – AI Powered Price Comparison Platform
+# PriceTracker — AI-Powered Price Comparison Platform
 
-An AI-powered price comparison platform that aggregates product prices from multiple e-commerce sources and presents them in a unified interface. The system performs background scraping, caching, and AI-assisted shopping guidance to help users discover the best deals efficiently.
+> Search once. Compare everywhere. Buy smarter.
 
-Features
-Real-Time Price Comparison
+PriceTracker is a full-stack, production-grade web application that aggregates product prices from multiple e-commerce sources into a single interface. Built with a distributed background scraping pipeline, intelligent caching, and an AI shopping assistant powered by Google Gemini — it solves the real problem of fragmented online shopping by bringing all the data to one place.
 
-Search products and compare prices across multiple e-commerce platforms in one interface.
+---
 
-Background Scraping Pipeline
+## What It Does
 
-Product data is scraped asynchronously using a distributed job queue to avoid API timeouts.
+When a user searches for a product, PriceTracker dispatches scraping jobs asynchronously via a BullMQ queue backed by Redis. Worker processes fetch and normalize product data from multiple sources — using a combination of scraping APIs and direct scrapers — then persist results to MongoDB. The frontend polls for job completion and renders a live, unified price comparison view. Price history is stored over time so users can spot trends and decide the best moment to buy.
 
-AI Shopping Assistant
+An integrated AI chatbot (Google Gemini) answers shopping-related questions contextually — helping users choose between products, understand specs, or find alternatives.
 
-An integrated chatbot powered by Google Gemini that answers product and shopping related queries.
+---
 
-Intelligent Product Matching
+## Features
 
-Product titles are normalized to identify identical items across different marketplaces.
+### Real-Time Price Comparison
+Search any product and see results from multiple e-commerce platforms side by side in one unified view. No tab-switching. No manual searching.
 
-Price History Tracking
+### Distributed Background Scraping Pipeline
+Scraping jobs are offloaded to background workers via BullMQ + Redis queues. This prevents API timeouts and keeps the UI responsive — the frontend subscribes to job status and displays results as they arrive.
 
-Stores price data over time and visualizes trends for better purchasing decisions.
+### AI Shopping Assistant
+A chatbot powered by Google Gemini answers product-related queries in context. Ask it to compare two laptops, explain a spec, or suggest alternatives — it responds with shopping-aware guidance.
 
-Rate Limited Demo Mode
+### Intelligent Product Title Normalization
+Product titles vary wildly across platforms. The system normalizes them to match identical items across different marketplaces, reducing noise in search results.
 
-IP-based rate limiting protects API quotas while allowing public demonstrations.
+### Price History Tracking
+Price data is stored over time in MongoDB. Trends are visualized so users can see whether a product is cheaper now versus last week or last month.
 
-Modern UI
+### IP-Based Rate Limiting
+Public demo endpoints are rate-limited per IP to protect external API quotas and prevent abuse — a necessary design for a scraping-heavy platform exposed to the internet.
 
-Responsive interface built with modern component libraries and smooth animations.
+---
 
-Tech Stack
-Frontend
+## Tech Stack & Rationale
 
-Next.js (App Router)
+| Layer | Technology | Why |
+|---|---|---|
+| **Frontend** | Next.js (App Router) | SSR + client routing in one framework; App Router enables layout-level data fetching |
+| **UI Components** | Shadcn UI + Radix UI | Accessible, unstyled primitives with full design control |
+| **Styling** | Tailwind CSS | Utility-first, fast iteration, no CSS file sprawl |
+| **Animations** | Framer Motion | Declarative animations for job-status transitions and result reveals |
+| **API Layer** | Next.js API Routes | Co-located backend routes; no separate Express server needed |
+| **Job Queue** | BullMQ | Redis-backed job queue purpose-built for Node.js; handles retries, delays, concurrency |
+| **Cache + Queue Broker** | Redis (Upstash) | Fast ephemeral store for BullMQ and result caching; Upstash for serverless-compatible Redis |
+| **Database** | MongoDB (Atlas) | Flexible document schema for heterogeneous product data from different scrapers |
+| **Scraping** | Puppeteer, Cheerio, SerpAPI, ZenRows, ScrapingBee, RapidAPI | Multi-source redundancy; headless browser for JS-rendered pages, fast HTML parsers for static pages |
+| **AI** | Google Gemini API | Generous free tier; strong instruction-following for shopping assistant use case |
+| **Deployment** | Vercel (frontend), Render/Railway (worker), MongoDB Atlas, Upstash Redis | Separation of concerns — long-running worker processes need persistent infra that Vercel's serverless functions can't provide |
 
-React
+---
 
-Tailwind CSS
+## System Architecture
 
-Shadcn UI
+```
+User Search
+     │
+     ▼
+Next.js Frontend  ──────────────────────────┐
+     │                                       │
+     ▼                                       │ Polls job status
+Next.js API Routes                           │
+     │                                       │
+     ▼                                       │
+BullMQ Queue (Redis / Upstash)               │
+     │                                       │
+     ▼                                       │
+Background Worker (Render/Railway)           │
+     │                                       │
+     ├── Puppeteer (JS-rendered pages)       │
+     ├── Cheerio (static HTML parsing)       │
+     ├── SerpAPI / ZenRows / ScrapingBee     │
+     │                                       │
+     ▼                                       │
+MongoDB Atlas (cache + price history) ───────┘
+     │
+     ▼
+Results returned to UI
+```
 
-Radix UI
+**Why this architecture?**
+Scraping is slow and unpredictable. Putting scraping work directly in an API route would time out in seconds. By offloading to a BullMQ queue processed by a dedicated worker, the API returns immediately with a job ID, and the frontend polls for completion. This is the same pattern used by production scraping and ETL systems.
 
-Framer Motion
+---
 
-Backend
+## Key Engineering Decisions
 
-Node.js
+- **BullMQ over simple async calls** — gives retry logic, job priorities, and concurrency control out of the box
+- **Multi-source scraping strategy** — using several APIs (SerpAPI, ZenRows, ScrapingBee) in parallel increases coverage and reduces single-point-of-failure risk
+- **MongoDB for product data** — product schemas differ per source; a document store avoids painful schema migrations as scrapers evolve
+- **Upstash Redis** — Redis as a managed, serverless-compatible service; works seamlessly with Vercel's edge environment for rate limiting
+- **Worker deployed separately** — Next.js on Vercel runs as serverless functions (max ~60s); background workers need persistent processes, so Render/Railway is the right separation
 
-Next.js API Routes
+---
 
-BullMQ
+## Local Setup
 
-Data & Infrastructure
-
-MongoDB
-
-Redis
-
-Web Scraping
-
-Puppeteer
-
-Cheerio
-
-SerpAPI
-
-RapidAPI
-
-ZenRows
-
-ScrapingBee
-
-AI Integration
-
-Google Gemini API
-
-System Architecture
-User
- ↓
-Next.js Frontend
- ↓
-API Routes
- ↓
-BullMQ Queue (Redis)
- ↓
-Background Worker
- ↓
-Scraping APIs
- ↓
-MongoDB Cache
- ↓
-Results sent to UI
-
-This architecture prevents long-running scraping tasks from blocking API requests.
-
-Deployment Architecture
-
-Frontend & API
-Vercel
-
-Background Worker
-Render / Railway
-
-Queue
-Upstash Redis
-
-Database
-MongoDB Atlas
-
-Key Engineering Highlights
-
-• Implemented distributed scraping pipeline using BullMQ and Redis
-• Designed caching system to reduce external API calls
-• Integrated AI chatbot for contextual product assistance
-• Built rate limiting system for controlled public demos
-• Developed scalable architecture separating frontend, worker, and queue
-
-Local Setup
+```bash
 git clone https://github.com/nagamanibuddepu/PriceTracker
 cd PriceTracker
-
 npm install
-npm run dev
+```
 
-Create .env.local using .env.example.
+Copy the environment template and fill in your keys:
+
+```bash
+cp .env.example .env.local
+```
+
+Start the development server:
+
+```bash
+npm run dev
+```
+
+You'll need API keys for: Google Gemini, at least one scraping API (SerpAPI / ZenRows / ScrapingBee), a Redis instance (Upstash or local), and a MongoDB connection string.
+
+---
+
+## Deployment
+
+| Service | Platform |
+|---|---|
+| Frontend + API Routes | Vercel |
+| Background Worker | Render or Railway |
+| Redis Queue | Upstash |
+| Database | MongoDB Atlas |
+
+The worker must be deployed as a **separate long-running service** — it cannot run on Vercel's serverless functions.
+
+---
+
+## Resume Description
+
+> **PriceTracker — AI-Powered Price Comparison Platform**
+> Built a full-stack price aggregation platform using Next.js, BullMQ, Redis, and MongoDB. Designed a distributed background scraping pipeline that decouples long-running jobs from API routes using a Redis-backed job queue, preventing timeouts under real-world scraping latency. Integrated Google Gemini as a contextual AI shopping assistant. Implemented IP-based rate limiting for public demo safety. Deployed frontend on Vercel with a separate long-running worker on Render, following production separation-of-concerns architecture.
+> **Stack:** Next.js · Node.js · BullMQ · Redis · MongoDB · Google Gemini · Puppeteer · Tailwind CSS · Shadcn UI · Framer Motion
+
+---
+
+## Author
+
+**Nagamani Buddepu**
+[GitHub](https://github.com/nagamanibuddepu)
