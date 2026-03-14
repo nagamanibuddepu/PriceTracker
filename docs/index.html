@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PriceTracker – README</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Sora:wght@400;500;600;700&family=DM+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #16161f;
+    --card: #1a1a24;
+    --border: rgba(255,255,255,0.07);
+    --border2: rgba(255,255,255,0.12);
+    --text: #e8e6f0;
+    --muted: #7a7891;
+    --accent: #6c63ff;
+    --accent2: #a78bfa;
+    --green: #34d399;
+    --amber: #fbbf24;
+    --red: #f87171;
+    --teal: #2dd4bf;
+    --pink: #f472b6;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+    --display: 'Sora', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.7;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 60px 32px 120px;
+  }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 80px 0 60px;
+    position: relative;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 300px;
+    background: radial-gradient(ellipse at 50% 0%, rgba(108,99,255,0.18) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .badge-row {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    border: 1px solid;
+    letter-spacing: 0.04em;
+  }
+
+  .badge-purple { color: #c4b5fd; border-color: rgba(167,139,250,0.3); background: rgba(109,40,217,0.12); }
+  .badge-green  { color: #6ee7b7; border-color: rgba(52,211,153,0.3); background: rgba(5,150,105,0.12); }
+  .badge-amber  { color: #fde68a; border-color: rgba(251,191,36,0.3); background: rgba(180,83,9,0.12); }
+  .badge-blue   { color: #93c5fd; border-color: rgba(147,197,253,0.3); background: rgba(30,64,175,0.12); }
+
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(36px, 6vw, 56px);
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    margin-bottom: 6px;
+  }
+
+  .hero-sub {
+    font-family: var(--display);
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--accent2);
+    margin-bottom: 20px;
+  }
+
+  .hero-desc {
+    color: var(--muted);
+    font-size: 16px;
+    max-width: 560px;
+    margin: 0 auto 40px;
+    line-height: 1.8;
+  }
+
+  .cta-row {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px 22px;
+    border-radius: 8px;
+    text-decoration: none;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    border: none;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+  .btn-primary:hover { background: #7c73ff; }
+
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border2);
+    color: var(--text);
+  }
+  .btn-ghost:hover { border-color: rgba(255,255,255,0.25); }
+
+  /* Divider */
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 56px 0;
+  }
+
+  /* Section */
+  .section-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent2);
+    margin-bottom: 12px;
+  }
+
+  h2 {
+    font-family: var(--display);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 24px;
+    color: var(--text);
+  }
+
+  h3 {
+    font-family: var(--display);
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 6px;
+  }
+
+  /* Feature grid */
+  .features {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+
+  .feature-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px;
+    transition: border-color 0.2s;
+  }
+
+  .feature-card:hover { border-color: var(--border2); }
+
+  .feature-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    margin-bottom: 14px;
+  }
+
+  .feature-desc {
+    font-size: 14px;
+    color: var(--muted);
+    line-height: 1.6;
+  }
+
+  /* Tech table */
+  .tech-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  .tech-table thead th {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-align: left;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+
+  .tech-table tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s;
+  }
+
+  .tech-table tbody tr:last-child { border-bottom: none; }
+  .tech-table tbody tr:hover { background: rgba(255,255,255,0.025); }
+
+  .tech-table td {
+    padding: 12px 16px;
+    vertical-align: top;
+    color: var(--text);
+  }
+
+  .tech-table td:first-child {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+
+  .tech-table td:nth-child(2) { font-weight: 500; }
+
+  .tech-table td:last-child {
+    color: var(--muted);
+    font-size: 13px;
+    line-height: 1.6;
+  }
+
+  .table-wrap {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  /* Architecture */
+  .arch-box {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 32px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 2;
+    color: var(--muted);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .arch-box::before {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle at 100% 0%, rgba(108,99,255,0.08) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .arch-node {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    font-weight: 500;
+  }
+
+  .arch-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  .arch-arrow {
+    color: var(--border2);
+    margin-left: 20px;
+  }
+
+  /* Engineering highlights */
+  .highlights {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .highlight-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .highlight-item:last-child { border-bottom: none; }
+
+  .highlight-bullet {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .highlight-bullet svg {
+    width: 10px; height: 10px;
+    stroke: var(--accent2);
+  }
+
+  .highlight-text { font-size: 14px; color: var(--muted); line-height: 1.6; }
+  .highlight-text strong { color: var(--text); font-weight: 500; }
+
+  /* Deployment */
+  .deploy-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 12px;
+  }
+
+  .deploy-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+  }
+
+  .deploy-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 4px;
+  }
+
+  .deploy-val {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+  }
+
+  /* Code block */
+  .code-block {
+    background: #0d0d14;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .code-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .code-dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+  }
+
+  .code-body {
+    padding: 20px 20px;
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.9;
+    color: var(--muted);
+    overflow-x: auto;
+  }
+
+  .code-body .cmd { color: var(--green); }
+  .code-body .comment { color: #3d3d5c; }
+  .code-body .path { color: var(--accent2); }
+
+  /* Resume block */
+  .resume-block {
+    background: linear-gradient(135deg, rgba(108,99,255,0.06) 0%, rgba(45,212,191,0.04) 100%);
+    border: 1px solid rgba(108,99,255,0.2);
+    border-radius: 12px;
+    padding: 28px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .resume-block::before {
+    content: '"';
+    position: absolute;
+    top: -10px;
+    left: 24px;
+    font-size: 120px;
+    font-family: var(--display);
+    color: rgba(108,99,255,0.08);
+    line-height: 1;
+  }
+
+  .resume-text {
+    font-size: 15px;
+    line-height: 1.8;
+    color: var(--text);
+    margin-bottom: 20px;
+  }
+
+  .stack-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .stack-tag {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 4px 10px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    color: var(--muted);
+  }
+
+  /* Footer */
+  .footer {
+    text-align: center;
+    padding-top: 60px;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px solid var(--border);
+    margin-top: 80px;
+  }
+
+  .footer a {
+    color: var(--accent2);
+    text-decoration: none;
+  }
+
+  /* Spacing helpers */
+  .mt-6 { margin-top: 24px; }
+  .mt-8 { margin-top: 32px; }
+
+  /* Inline code */
+  code {
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 2px 6px;
+    background: rgba(255,255,255,0.06);
+    border-radius: 4px;
+    color: var(--accent2);
+  }
+</style>
+</head>
+<body>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="badge-row">
+    <span class="badge badge-purple">Full-Stack</span>
+    <span class="badge badge-green">Production Architecture</span>
+    <span class="badge badge-amber">AI-Powered</span>
+    <span class="badge badge-blue">Next.js · BullMQ · MongoDB</span>
+  </div>
+
+  <h1>PriceTracker</h1>
+  <div class="hero-sub">AI-Powered Price Comparison Platform</div>
+  <p class="hero-desc">
+    Search once. Compare everywhere. Buy smarter. A production-grade web application that aggregates product prices from multiple e-commerce sources — with a distributed scraping pipeline, intelligent caching, and an AI shopping assistant.
+  </p>
+
+  <div class="cta-row">
+    <a href="https://github.com/nagamanibuddepu/PriceTracker" class="btn btn-primary">
+      ↗ View on GitHub
+    </a>
+    <a href="#architecture" class="btn btn-ghost">
+      See Architecture ↓
+    </a>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- FEATURES -->
+<div class="section-label">What it does</div>
+<h2>Core Features</h2>
+
+<div class="features">
+  <div class="feature-card">
+    <div class="feature-icon" style="background: rgba(108,99,255,0.12);">🔍</div>
+    <h3>Real-Time Price Comparison</h3>
+    <p class="feature-desc">Search any product and see results from multiple e-commerce platforms side by side. No tab-switching. No manual searching.</p>
+  </div>
+
+  <div class="feature-card">
+    <div class="feature-icon" style="background: rgba(52,211,153,0.12);">⚙️</div>
+    <h3>Distributed Scraping Pipeline</h3>
+    <p class="feature-desc">Jobs are offloaded to BullMQ background workers via Redis queues — preventing API timeouts and keeping the UI fully responsive.</p>
+  </div>
+
+  <div class="feature-card">
+    <div class="feature-icon" style="background: rgba(251,191,36,0.12);">🤖</div>
+    <h3>AI Shopping Assistant</h3>
+    <p class="feature-desc">Powered by Google Gemini. Answers product questions, compares specs, and suggests alternatives with contextual shopping awareness.</p>
+  </div>
+
+  <div class="feature-card">
+    <div class="feature-icon" style="background: rgba(45,212,191,0.12);">🔗</div>
+    <h3>Product Title Normalization</h3>
+    <p class="feature-desc">Product titles vary wildly across platforms. The system normalizes them to match identical items across different marketplaces.</p>
+  </div>
+
+  <div class="feature-card">
+    <div class="feature-icon" style="background: rgba(244,114,182,0.12);">📈</div>
+    <h3>Price History Tracking</h3>
+    <p class="feature-desc">Price data is stored over time in MongoDB. Trends are visualized so users can spot the best moment to buy.</p>
+  </div>
+
+  <div class="feature-card">
+    <div class="feature-icon" style="background: rgba(248,113,113,0.12);">🛡️</div>
+    <h3>IP-Based Rate Limiting</h3>
+    <p class="feature-desc">Public demo endpoints are rate-limited per IP to protect external API quotas and prevent abuse in a scraping-heavy public deployment.</p>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- ARCHITECTURE -->
+<div id="architecture" class="section-label">System design</div>
+<h2>Architecture</h2>
+
+<div class="arch-box">
+  <div style="margin-bottom: 4px; color: var(--muted); font-size: 12px;">request lifecycle</div>
+  <br>
+  <div><span class="arch-node"><span class="arch-dot" style="background: var(--accent2)"></span>User Search</span></div>
+  <div class="arch-arrow">│</div>
+  <div><span class="arch-node"><span class="arch-dot" style="background: var(--teal)"></span>Next.js Frontend</span> <span style="color: var(--border2); font-size: 12px; margin-left: 12px;">— polls job status</span></div>
+  <div class="arch-arrow">│</div>
+  <div><span class="arch-node"><span class="arch-dot" style="background: var(--teal)"></span>Next.js API Routes</span> <span style="color: var(--border2); font-size: 12px; margin-left: 12px;">— returns job ID immediately</span></div>
+  <div class="arch-arrow">│</div>
+  <div><span class="arch-node"><span class="arch-dot" style="background: var(--green)"></span>BullMQ Queue</span> <span style="color: var(--border2); font-size: 12px; margin-left: 12px;">— Redis-backed async queue</span></div>
+  <div class="arch-arrow">│</div>
+  <div><span class="arch-node"><span class="arch-dot" style="background: var(--amber)"></span>Background Worker</span> <span style="color: var(--border2); font-size: 12px; margin-left: 12px;">— separate long-running process</span></div>
+  <div class="arch-arrow">├─ <span style="color: var(--muted)">Puppeteer</span> &nbsp;·&nbsp; <span style="color: var(--muted)">Cheerio</span> &nbsp;·&nbsp; <span style="color: var(--muted)">SerpAPI</span> &nbsp;·&nbsp; <span style="color: var(--muted)">ZenRows</span> &nbsp;·&nbsp; <span style="color: var(--muted)">ScrapingBee</span></div>
+  <div class="arch-arrow">│</div>
+  <div><span class="arch-node"><span class="arch-dot" style="background: var(--pink)"></span>MongoDB Atlas</span> <span style="color: var(--border2); font-size: 12px; margin-left: 12px;">— cache + price history</span></div>
+  <div class="arch-arrow">│</div>
+  <div><span class="arch-node"><span class="arch-dot" style="background: var(--accent2)"></span>Results → UI</span></div>
+</div>
+
+<p class="mt-6" style="color: var(--muted); font-size: 14px; line-height: 1.7;">
+  Scraping is slow and unpredictable. Putting scraping work directly in an API route would time out within seconds. By offloading to a BullMQ queue processed by a dedicated worker, the API returns immediately with a job ID, and the frontend polls for completion — the same pattern used by production ETL and scraping systems.
+</p>
+
+<hr class="divider">
+
+<!-- TECH STACK -->
+<div class="section-label">Technology choices</div>
+<h2>Tech Stack & Rationale</h2>
+
+<div class="table-wrap">
+  <table class="tech-table">
+    <thead>
+      <tr>
+        <th>Layer</th>
+        <th>Technology</th>
+        <th>Why this choice</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Frontend</td>
+        <td>Next.js (App Router)</td>
+        <td>SSR + client routing in one framework. App Router enables layout-level data fetching and co-located API routes without a separate Express server.</td>
+      </tr>
+      <tr>
+        <td>UI</td>
+        <td>Shadcn UI + Radix UI</td>
+        <td>Accessible, unstyled primitives with full design control. Radix handles the hard parts (focus traps, keyboard nav) without forcing visual opinions.</td>
+      </tr>
+      <tr>
+        <td>Styling</td>
+        <td>Tailwind CSS</td>
+        <td>Utility-first approach eliminates CSS file sprawl on a fast-iteration side project. No build-time surprises.</td>
+      </tr>
+      <tr>
+        <td>Animation</td>
+        <td>Framer Motion</td>
+        <td>Declarative animation API. Used for job-status transitions and result reveal animations where CSS alone gets unwieldy.</td>
+      </tr>
+      <tr>
+        <td>Job Queue</td>
+        <td>BullMQ</td>
+        <td>Redis-backed job queue purpose-built for Node.js. Handles retries, delays, and concurrency control out of the box — replacing complex manual polling logic.</td>
+      </tr>
+      <tr>
+        <td>Cache + Broker</td>
+        <td>Redis (Upstash)</td>
+        <td>Fast ephemeral store for BullMQ jobs. Upstash is serverless-compatible Redis — works on Vercel's edge environment for rate limiting without a dedicated Redis server.</td>
+      </tr>
+      <tr>
+        <td>Database</td>
+        <td>MongoDB Atlas</td>
+        <td>Product data schemas differ per e-commerce source. A document store avoids painful schema migrations as scrapers evolve and new fields appear.</td>
+      </tr>
+      <tr>
+        <td>Scraping</td>
+        <td>Puppeteer, Cheerio, SerpAPI, ZenRows, ScrapingBee, RapidAPI</td>
+        <td>Multi-source redundancy. Puppeteer for JS-rendered pages; Cheerio for fast static HTML parsing; paid scraping APIs as fallback and for anti-bot protection.</td>
+      </tr>
+      <tr>
+        <td>AI</td>
+        <td>Google Gemini API</td>
+        <td>Generous free tier. Strong instruction-following for the shopping assistant use case. Contextually aware responses for product comparison queries.</td>
+      </tr>
+      <tr>
+        <td>Deployment</td>
+        <td>Vercel + Render/Railway + Upstash + Atlas</td>
+        <td>Long-running worker processes can't run on Vercel's serverless functions (60s max). Worker is deployed separately on Render/Railway as a persistent service.</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<hr class="divider">
+
+<!-- ENGINEERING HIGHLIGHTS -->
+<div class="section-label">Key decisions</div>
+<h2>Engineering Highlights</h2>
+
+<div class="highlights">
+  <div class="highlight-item">
+    <div class="highlight-bullet">
+      <svg viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round">
+        <polyline points="2,5 4,7 8,3"/>
+      </svg>
+    </div>
+    <div class="highlight-text">
+      <strong>Distributed scraping with BullMQ + Redis</strong> — gives retry logic, job priorities, and concurrency control out of the box. Prevents API routes from blocking on slow scrapers.
+    </div>
+  </div>
+
+  <div class="highlight-item">
+    <div class="highlight-bullet">
+      <svg viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round">
+        <polyline points="2,5 4,7 8,3"/>
+      </svg>
+    </div>
+    <div class="highlight-text">
+      <strong>Multi-source scraping strategy</strong> — using several APIs (SerpAPI, ZenRows, ScrapingBee) in parallel increases coverage and reduces single-point-of-failure risk from any one source getting blocked.
+    </div>
+  </div>
+
+  <div class="highlight-item">
+    <div class="highlight-bullet">
+      <svg viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round">
+        <polyline points="2,5 4,7 8,3"/>
+      </svg>
+    </div>
+    <div class="highlight-text">
+      <strong>MongoDB for heterogeneous product data</strong> — scraped product schemas differ per source. A document store avoids painful schema migrations as scrapers are added or modified.
+    </div>
+  </div>
+
+  <div class="highlight-item">
+    <div class="highlight-bullet">
+      <svg viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round">
+        <polyline points="2,5 4,7 8,3"/>
+      </svg>
+    </div>
+    <div class="highlight-text">
+      <strong>Worker deployed separately from frontend</strong> — Next.js on Vercel runs as serverless functions with a 60s timeout ceiling. Background scraping workers need persistent processes; Render/Railway provides that separation cleanly.
+    </div>
+  </div>
+
+  <div class="highlight-item">
+    <div class="highlight-bullet">
+      <svg viewBox="0 0 10 10" fill="none" stroke-width="1.5" stroke-linecap="round">
+        <polyline points="2,5 4,7 8,3"/>
+      </svg>
+    </div>
+    <div class="highlight-text">
+      <strong>Upstash Redis for serverless rate limiting</strong> — standard Redis can't run in Vercel's edge environment. Upstash is a REST-compatible Redis that works in both edge and Node.js contexts.
+    </div>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- DEPLOYMENT -->
+<div class="section-label">Infrastructure</div>
+<h2>Deployment</h2>
+
+<div class="deploy-grid">
+  <div class="deploy-card">
+    <div class="deploy-label">Frontend + API</div>
+    <div class="deploy-val">Vercel</div>
+  </div>
+  <div class="deploy-card">
+    <div class="deploy-label">Background Worker</div>
+    <div class="deploy-val">Render / Railway</div>
+  </div>
+  <div class="deploy-card">
+    <div class="deploy-label">Redis Queue</div>
+    <div class="deploy-val">Upstash</div>
+  </div>
+  <div class="deploy-card">
+    <div class="deploy-label">Database</div>
+    <div class="deploy-val">MongoDB Atlas</div>
+  </div>
+</div>
+
+<p class="mt-6" style="color: var(--muted); font-size: 13px;">
+  ⚠ The worker must be deployed as a <strong>separate long-running service</strong> — it cannot run on Vercel's serverless functions.
+</p>
+
+<hr class="divider">
+
+<!-- LOCAL SETUP -->
+<div class="section-label">Getting started</div>
+<h2>Local Setup</h2>
+
+<div class="code-block">
+  <div class="code-header">
+    <span class="code-dot" style="background: #ff5f56"></span>
+    <span class="code-dot" style="background: #ffbd2e"></span>
+    <span class="code-dot" style="background: #27c93f"></span>
+    <span style="font-family: var(--mono); font-size: 11px; color: var(--muted); margin-left: 8px;">terminal</span>
+  </div>
+  <div class="code-body">
+    <span class="comment"># 1. Clone the repo</span><br>
+    <span class="cmd">git clone</span> <span class="path">https://github.com/nagamanibuddepu/PriceTracker</span><br>
+    <span class="cmd">cd</span> PriceTracker<br><br>
+    <span class="comment"># 2. Install dependencies</span><br>
+    <span class="cmd">npm install</span><br><br>
+    <span class="comment"># 3. Set up environment variables</span><br>
+    <span class="cmd">cp</span> .env.example .env.local<br>
+    <span class="comment">#    Fill in: Gemini API key, SerpAPI/ZenRows/ScrapingBee key,</span><br>
+    <span class="comment">#    Redis URL (Upstash), MongoDB connection string</span><br><br>
+    <span class="comment"># 4. Start development server</span><br>
+    <span class="cmd">npm run dev</span>
+  </div>
+</div>
+
+<hr class="divider">
+
+<!-- RESUME DESCRIPTION -->
+<div class="section-label"></div>
+<h2>Project Description</h2>
+
+<div class="resume-block">
+  <p class="resume-text">
+    <strong>PriceTracker — AI-Powered Price Comparison Platform</strong><br>
+    Built a full-stack price aggregation platform using Next.js, BullMQ, Redis, and MongoDB. Designed a distributed background scraping pipeline that decouples long-running jobs from API routes using a Redis-backed job queue, preventing timeouts under real-world scraping latency. Integrated Google Gemini as a contextual AI shopping assistant. Implemented IP-based rate limiting for public demo safety. Deployed frontend on Vercel with a separate long-running worker on Render, following production separation-of-concerns architecture.
+  </p>
+  <div class="stack-tags">
+    <span class="stack-tag">Next.js</span>
+    <span class="stack-tag">Node.js</span>
+    <span class="stack-tag">BullMQ</span>
+    <span class="stack-tag">Redis</span>
+    <span class="stack-tag">MongoDB</span>
+    <span class="stack-tag">Google Gemini</span>
+    <span class="stack-tag">Puppeteer</span>
+    <span class="stack-tag">Tailwind CSS</span>
+    <span class="stack-tag">Shadcn UI</span>
+    <span class="stack-tag">Framer Motion</span>
+    <span class="stack-tag">Vercel</span>
+    <span class="stack-tag">Upstash</span>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<div class="footer">
+  <p>Built by <a href="https://github.com/nagamanibuddepu">Nagamani Buddepu</a></p>
+  <p style="margin-top: 6px; font-size: 12px;">
+    <a href="https://github.com/nagamanibuddepu/PriceTracker">github.com/nagamanibuddepu/PriceTracker</a>
+  </p>
+</div>
+
+</body>
+</html>
