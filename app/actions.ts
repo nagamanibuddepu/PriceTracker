@@ -764,10 +764,10 @@ export async function enqueueScraping(query: string, page: number = 1) {
 
   if (!isAdmin && await isDemoModeEnabled()) {
     const ip = headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || '127.0.0.1';
-    const result = await checkRateLimit(ip, 'search', 3, 3600);
+    const result = await checkRateLimit(ip, 'search', 5, 3600);
     if (!result.success) {
       console.log(`Rate limit exceeded for search by IP: ${ip}`);
-      return { success: false, error: 'Demo Mode Limit Reached\nOnly 3 searches per hour allowed in demo.' };
+      return { success: false, error: 'Demo Mode Limit Reached\nOnly 5 searches per hour allowed in demo.' };
     }
   }
 
