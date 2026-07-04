@@ -652,7 +652,9 @@ export async function compareProducts(
       // Cache valid for 12 hours
       if (cached && (Date.now() - cached.timestamp < 12 * 60 * 60 * 1000)) {
         console.log(`[Cache Hit] Returning cached results for "${query}"`);
-        return cached.data;
+        // Apply filtering to cached results as well to handle updated logic
+        const filtered = filterIrrelevantProducts(cached.data, query);
+        return filtered;
       }
     }
   } catch (error) {
@@ -1108,37 +1110,50 @@ function generateTestProducts(query: string): ScrapedProduct[] {
  * Filters out products that are irrelevant to the user's query.
  * For example, if searching for 'iPhone', it removes 'Samsung' or 'OnePlus' results.
  */
-function filterIrrelevantProducts(products: ScrapedProduct[], query: string): ScrapedProduct[] {
+function filterIrrelevantProducts(products: any[], query: string): any[] {
   const queryLower = query.toLowerCase();
-  const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+  const queryWords = queryLower.split(/\s+/).filter(w => w.length > 1);
   
-  // Extract brand from query if possible (common brands)
-  const brands = ['apple', 'iphone', 'samsung', 'oneplus', 'oppo', 'vivo', 'realme', 'xiaomi', 'redmi', 'google', 'pixel', 'sony'];
+  // Extract brand and numbers from query
+  const brands = ['apple', 'iphone', 'samsung', 'oneplus', 'oppo', 'vivo', 'realme', 'xiaomi', 'redmi', 'google', 'pixel', 'sony', 'one plus'];
   const targetBrand = brands.find(b => queryLower.includes(b));
+  const queryNumbers = queryLower.match(/\d+/g) || [];
 
   return products.filter(p => {
-    const nameLower = p.name.toLowerCase();
+    // Determine if it's a grouped product or raw product
+    const pName = p.productName || p.name;
+    if (!pName) return false;
+    const nameLower = pName.toLowerCase();
     
-    // If we identified a specific brand in the query, strictly enforce it
+    // 1. Brand Enforcement
     if (targetBrand) {
-      // Special case: 'iphone' means 'apple'
-      if (targetBrand === 'iphone' || targetBrand === 'apple') {
+      const isApple = targetBrand === 'iphone' || targetBrand === 'apple';
+      if (isApple) {
         if (!nameLower.includes('apple') && !nameLower.includes('iphone')) return false;
-      } else if (!nameLower.includes(targetBrand)) {
-        return false;
+      } else {
+        const brandToMatch = targetBrand === 'one plus' ? 'oneplus' : targetBrand;
+        if (!nameLower.includes(brandToMatch) && !nameLower.includes(targetBrand)) return false;
       }
     }
 
-    // Check if at least one significant word from the query is in the product name
+    // 2. Strict Model/Number Matching
+    // If user specifies a number (like '15' in 'iPhone 15'), the product MUST have that number
+    // to avoid showing 'iPhone 14' or 'OnePlus 12'.
+    for (const num of queryNumbers) {
+      if (num.length >= 2) { // Only check for 2+ digit numbers like '15', '14', '256'
+        const regex = new RegExp(`\\b${num}\\b`); 
+        if (!regex.test(nameLower)) return false;
+      }
+    }
+
+    // 3. Keyword Match
     const matchCount = queryWords.filter(word => nameLower.includes(word)).length;
     if (queryWords.length > 0 && matchCount === 0) return false;
 
-    // Filter out obvious sponsored related items that don't match the primary category
-    if (queryLower.includes('phone') || queryLower.includes('iphone')) {
-      const irrelevantKeywords = ['case', 'cover', 'tempered', 'adapter', 'cable', 'charger'];
-      if (irrelevantKeywords.some(key => nameLower.includes(key)) && !queryLower.includes(key)) {
-        return false;
-      }
+    // 4. Accessory Filtering
+    const irrelevantKeywords = ['case', 'cover', 'tempered', 'adapter', 'cable', 'charger', 'strap', 'pouch'];
+    if (irrelevantKeywords.some(key => nameLower.includes(key)) && !queryLower.includes(key)) {
+      return false;
     }
 
     return true;
