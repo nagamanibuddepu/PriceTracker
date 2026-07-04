@@ -672,7 +672,8 @@ export async function compareProducts(
       }
     });
     if (onProgress) {
-      onProgress(groupSimilarProducts(allProducts));
+      const filtered = filterIrrelevantProducts(allProducts, query);
+      onProgress(groupSimilarProducts(filtered));
     }
   };
 
@@ -715,8 +716,14 @@ export async function compareProducts(
     allProducts = generateTestProducts(query);
   }
 
+  // Filter out irrelevant products before grouping
+  const filteredProducts = filterIrrelevantProducts(allProducts, query);
+  
+  // If we filtered out almost everything, be less strict
+  const finalToGroup = filteredProducts.length > 0 ? filteredProducts : allProducts;
+
   // Group similar products
-  const groupedProducts = groupSimilarProducts(allProducts);
+  const groupedProducts = groupSimilarProducts(finalToGroup);
 
   // Record price history in background
   Promise.all(
@@ -1095,4 +1102,45 @@ function generateTestProducts(query: string): ScrapedProduct[] {
   }
 
   return testProducts
+}
+
+/**
+ * Filters out products that are irrelevant to the user's query.
+ * For example, if searching for 'iPhone', it removes 'Samsung' or 'OnePlus' results.
+ */
+function filterIrrelevantProducts(products: ScrapedProduct[], query: string): ScrapedProduct[] {
+  const queryLower = query.toLowerCase();
+  const queryWords = queryLower.split(/\s+/).filter(w => w.length > 2);
+  
+  // Extract brand from query if possible (common brands)
+  const brands = ['apple', 'iphone', 'samsung', 'oneplus', 'oppo', 'vivo', 'realme', 'xiaomi', 'redmi', 'google', 'pixel', 'sony'];
+  const targetBrand = brands.find(b => queryLower.includes(b));
+
+  return products.filter(p => {
+    const nameLower = p.name.toLowerCase();
+    
+    // If we identified a specific brand in the query, strictly enforce it
+    if (targetBrand) {
+      // Special case: 'iphone' means 'apple'
+      if (targetBrand === 'iphone' || targetBrand === 'apple') {
+        if (!nameLower.includes('apple') && !nameLower.includes('iphone')) return false;
+      } else if (!nameLower.includes(targetBrand)) {
+        return false;
+      }
+    }
+
+    // Check if at least one significant word from the query is in the product name
+    const matchCount = queryWords.filter(word => nameLower.includes(word)).length;
+    if (queryWords.length > 0 && matchCount === 0) return false;
+
+    // Filter out obvious sponsored related items that don't match the primary category
+    if (queryLower.includes('phone') || queryLower.includes('iphone')) {
+      const irrelevantKeywords = ['case', 'cover', 'tempered', 'adapter', 'cable', 'charger'];
+      if (irrelevantKeywords.some(key => nameLower.includes(key)) && !queryLower.includes(key)) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 }

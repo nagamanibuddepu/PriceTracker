@@ -97,6 +97,9 @@ export default function Home() {
             if (pollingRef.current) clearInterval(pollingRef.current)
             pollingRef.current = null
             finishWithResults(data.data || [])
+          } else if ((data.status === 'active' || data.status === 'waiting') && data.progress) {
+            // Update results with partial progress to show data faster
+            setResults(data.progress)
           } else if (data.status === 'failed') {
             if (pollingRef.current) clearInterval(pollingRef.current)
             pollingRef.current = null
