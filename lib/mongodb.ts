@@ -1,58 +1,86 @@
 import { MongoClient } from "mongodb"
 
-let client: MongoClient | null = null
-let clientPromise: Promise<MongoClient> | null = null
-
-// Check if MongoDB URI is available
 const uri = process.env.MONGODB_URI
+const connectionOptions = {
+  serverSelectionTimeoutMS: 15000,
+  connectTimeoutMS: 15000,
+  socketTimeoutMS: 30000,
+  tls: true,
+}
+
+const globalWithMongo = global as typeof globalThis & {
+  _mongoClient?: MongoClient | null
+  _mongoClientPromise?: Promise<MongoClient | null> | null
+}
+
+let client: MongoClient | null = globalWithMongo._mongoClient ?? null
+let clientPromise: Promise<MongoClient | null> | null = globalWithMongo._mongoClientPromise ?? null
 
 if (!uri) {
-  console.warn("MONGODB_URI is not set. Authentication will use fallback storage.")
+  console.warn("[MONGODB] MONGODB_URI is not set. Authentication will use fallback storage.")
 } else {
   console.log("[MONGODB] URI is configured, attempting to connect...")
 }
 
-// Only try to connect if URI is available
-if (uri) {
-  try {
-    if (process.env.NODE_ENV === "development") {
-      // In development mode, use a global variable so that the value
-      // is preserved across module reloads caused by HMR (Hot Module Replacement).
-      const globalWithMongo = global as typeof globalThis & {
-        _mongoClientPromise?: Promise<MongoClient>
-      }
+let lastFailure = 0
+const FAILURE_COOLDOWN = 60000 // 1 minute
 
-      if (!globalWithMongo._mongoClientPromise) {
-        console.log("[MONGODB] Creating new client connection...")
-        client = new MongoClient(uri)
-        globalWithMongo._mongoClientPromise = client.connect()
-      }
-      clientPromise = globalWithMongo._mongoClientPromise
-      console.log("[MONGODB] Using existing client connection")
-    } else {
-      // In production mode, it's best to not use a global variable.
-      console.log("[MONGODB] Creating new client connection (production)...")
-      client = new MongoClient(uri)
-      clientPromise = client.connect()
-    }
-  } catch (error) {
-    console.error("[MONGODB] Failed to initialize MongoDB client:", error)
-    clientPromise = null
+function initializeClientPromise(): Promise<MongoClient | null> {
+  const now = Date.now()
+  if (client === null && now - lastFailure < FAILURE_COOLDOWN) {
+    return Promise.resolve(null)
   }
+
+  if (!uri) {
+    return Promise.resolve(null)
+  }
+
+  if (!clientPromise || (client === null && uri)) {
+    console.log("[MONGODB] Creating new client connection...")
+    const mongoClient = new MongoClient(uri, connectionOptions)
+
+    clientPromise = Promise.race([
+      mongoClient.connect().then((connectedClient) => {
+        console.log("[MONGODB] Connected successfully")
+        client = connectedClient
+        globalWithMongo._mongoClient = client
+        return connectedClient
+      }),
+      new Promise<null>((resolve) => {
+        // Increase timeout to 10 seconds
+        setTimeout(() => {
+          console.warn("[MONGODB] Connection attempt timed out after 10s")
+          lastFailure = Date.now()
+          resolve(null)
+        }, 10000)
+      }),
+    ]).catch((error) => {
+      console.error("[MONGODB] Failed to initialize MongoDB client:", error)
+      lastFailure = Date.now()
+      client = null
+      globalWithMongo._mongoClient = null
+      return null
+    }) as Promise<MongoClient | null>
+
+    globalWithMongo._mongoClientPromise = clientPromise
+  }
+
+  return clientPromise
 }
 
 export default clientPromise
 
 export async function getDatabase() {
   try {
-    if (!clientPromise) {
+    const connectedClient = await initializeClientPromise()
+
+    if (!connectedClient) {
       console.warn("[MONGODB] Client not initialized. Using fallback storage.")
       return null
     }
 
-    const client = await clientPromise
     console.log("[MONGODB] Successfully connected to database")
-    return client.db("pricetracker")
+    return connectedClient.db("pricetracker")
   } catch (error) {
     console.error("[MONGODB] Failed to get database:", error)
     return null
@@ -60,17 +88,17 @@ export async function getDatabase() {
 }
 
 export function isMongoAvailable(): boolean {
-  return !!uri && !!clientPromise
+  return !!uri && !!client
 }
 
-// Add a function to test the connection
 export async function testConnection(): Promise<boolean> {
   try {
-    if (!clientPromise) {
+    const connectedClient = await initializeClientPromise()
+    if (!connectedClient) {
       return false
     }
-    const client = await clientPromise
-    await client.db("admin").command({ ping: 1 })
+
+    await connectedClient.db("admin").command({ ping: 1 })
     return true
   } catch (error) {
     console.error("MongoDB connection test failed:", error)

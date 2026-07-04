@@ -9,15 +9,11 @@ async function checkZenRowsStatus() {
     }
 
     // Test with a simple request
-    const response = await fetch("https://api.zenrows.com/v1/", {
+    const response = await fetch(`https://api.zenrows.com/v1/?apikey=${ZENROWS_API_KEY}&url=https://httpbin.org/ip`, {
       method: "GET",
       headers: {
-        "Content-Type": "application/json",
+        "Accept": "application/json",
       },
-      body: JSON.stringify({
-        url: "https://httpbin.org/ip",
-        apikey: ZENROWS_API_KEY,
-      }),
     })
 
     if (response.ok) {

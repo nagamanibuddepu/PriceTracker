@@ -1,4 +1,4 @@
-# 🛒 StreetSolve: Advanced E-Commerce Price Comparison Engine
+# 🛒 PriceTracker- Advanced E-Commerce Price Comparison Engine
 
 ## 📖 What is this Project?
 This project is a high-performance, real-time **Price Comparison and Tracking Engine**. It behaves as an aggregator, scraping leading e-commerce websites (Amazon, Flipkart, Myntra, Nykaa, etc.) to fetch the live prices of any requested product. It then normalizes, groups, and displays these products side-by-side, allowing users to instantly find the absolute lowest price across the internet.

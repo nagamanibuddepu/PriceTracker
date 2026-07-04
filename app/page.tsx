@@ -39,6 +39,7 @@ export default function Home() {
 
     if (pollingRef.current) {
       clearInterval(pollingRef.current)
+      pollingRef.current = null
     }
 
     setQuery(searchQuery)
@@ -46,40 +47,77 @@ export default function Home() {
     setError(null)
     setResults([])
 
+    const finishWithResults = (data: ProductData[]) => {
+      setResults(data)
+      setIsLoading(false)
+      if (data.length === 0) {
+        setError("No products found for your search. Try different keywords like 'iPhone', 'laptop', 'shoes', or 'headphones'.")
+      }
+    }
+
+    const runDirectSearch = async () => {
+      try {
+        const data = await compareProducts(searchQuery, 1)
+        finishWithResults(data)
+      } catch (err: any) {
+        setError(err.message || "Failed to fetch comparison data. Please try again.")
+        setIsLoading(false)
+      }
+    }
+
     try {
-      const { success, jobId, error: enqueueError } = await enqueueScraping(searchQuery)
-      if (!success || !jobId) {
-        throw new Error(enqueueError || "Failed to start scraping")
+      const enqueueResult = await enqueueScraping(searchQuery)
+
+      if (!enqueueResult.success) {
+        throw new Error(enqueueResult.error || "Failed to start scraping")
       }
 
+      if (enqueueResult.useDirect) {
+        await runDirectSearch()
+        return
+      }
+
+      const jobId = enqueueResult.jobId
+      if (!jobId) {
+        await runDirectSearch()
+        return
+      }
+
+      let pollAttempts = 0
+      const maxPollAttempts = 20
+
       pollingRef.current = setInterval(async () => {
+        pollAttempts += 1
+
         try {
           const res = await fetch(`/api/scrape/${jobId}`)
           const data = await res.json()
 
           if (data.status === 'completed') {
             if (pollingRef.current) clearInterval(pollingRef.current)
-            setResults(data.data)
-            setIsLoading(false)
-            if (data.data.length === 0) {
-              setError("No products found for your search. Try different keywords like 'iPhone', 'laptop', 'shoes', or 'headphones'.")
-            }
+            pollingRef.current = null
+            finishWithResults(data.data || [])
           } else if (data.status === 'failed') {
             if (pollingRef.current) clearInterval(pollingRef.current)
-            setError(data.error || "Failed to fetch comparison data. Please try again.")
-            setIsLoading(false)
+            pollingRef.current = null
+            await runDirectSearch()
           } else {
-            // Actively stream in the partial results from the job's progress!
             if (data.progress && Array.isArray(data.progress) && data.progress.length > 0) {
               setResults(data.progress)
             }
+
+            if (pollAttempts >= maxPollAttempts) {
+              if (pollingRef.current) clearInterval(pollingRef.current)
+              pollingRef.current = null
+              await runDirectSearch()
+            }
           }
-        } catch (err) {
+        } catch {
           if (pollingRef.current) clearInterval(pollingRef.current)
-          setError("Network error while checking status.")
-          setIsLoading(false)
+          pollingRef.current = null
+          await runDirectSearch()
         }
-      }, 1500) // Lowered polling to 1.5s for faster streams
+      }, 1500)
     } catch (err: any) {
       setError(err.message || "Failed to start search.")
       setIsLoading(false)

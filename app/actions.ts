@@ -7,6 +7,7 @@ import { headers } from 'next/headers'
 import { enqueueScrapeJob } from '../lib/queue'
 import { getDatabase, isMongoAvailable } from '../lib/mongodb'
 import { isDemoModeEnabled, checkRateLimit } from '../lib/rate-limit'
+import { isRedisAvailable } from '../lib/redis'
 import { recordPriceHistory } from '../lib/price-history'
 
 interface ScrapedProduct {
@@ -61,7 +62,8 @@ const ZENROWS_API_KEY = process.env.ZENROWS_API_KEY
 
 const RATE_LIMIT_DELAY = 2000
 const MAX_RETRIES = 3
-const FETCH_TIMEOUT = 30000
+const FETCH_TIMEOUT = 12000
+const API_TIMEOUT = 4000
 const PRODUCTS_PER_PAGE = 48
 
 // Request tracking
@@ -219,10 +221,7 @@ function cleanProductName(name: string): string {
 
 // Enhanced URL normalization
 function normalizeUrl(url: string, baseUrl: string): string {
-  console.log("[URL] Normalizing URL:", url, "with base:", baseUrl)
-
-  if (!url) {
-    console.log("[URL] Empty URL provided")
+  if (!url || url === '#') {
     return '#'
   }
 
@@ -230,35 +229,26 @@ function normalizeUrl(url: string, baseUrl: string): string {
     // If URL is already absolute, validate it
     if (url.startsWith('http')) {
       new URL(url) // Validate URL
-      console.log("[URL] Valid absolute URL:", url)
       return url
     }
 
     // Handle protocol-relative URLs
     if (url.startsWith('//')) {
-      const normalizedUrl = `https:${url}`
-      console.log("[URL] Normalized protocol-relative URL:", normalizedUrl)
-      return normalizedUrl
+      return `https:${url}`
     }
 
     // Handle relative URLs
     if (url.startsWith('/')) {
-      const normalizedUrl = `${baseUrl}${url}`
-      console.log("[URL] Normalized relative URL:", normalizedUrl)
-      return normalizedUrl
+      return `${baseUrl}${url}`
     }
 
     // Handle www URLs
     if (url.startsWith('www.')) {
-      const normalizedUrl = `https://${url}`
-      console.log("[URL] Normalized www URL:", normalizedUrl)
-      return normalizedUrl
+      return `https://${url}`
     }
 
     // Handle other relative URLs
-    const normalizedUrl = `${baseUrl}/${url}`
-    console.log("[URL] Normalized other URL:", normalizedUrl)
-    return normalizedUrl
+    return `${baseUrl}/${url}`
   } catch (error) {
     console.error("[URL] Error normalizing URL:", error, "URL:", url)
     return '#'
@@ -513,7 +503,6 @@ const RAPIDAPI_CONFIG = {
     params: {
       query: '',
       page: '1',
-      country: 'IN'
     }
   },
   productSearch: {
@@ -521,7 +510,18 @@ const RAPIDAPI_CONFIG = {
     params: {
       q: '',
       page: '1',
-      language: 'en'
+      language: 'en',
+      region: 'in'
+    }
+  },
+  megaProductSearch: {
+    url: 'https://real-time-product-search-mega.p.rapidapi.com/product-search',
+    apiKeyEnv: 'RAPIDAPI_MEGA_KEY', // Use a separate environment variable for this API
+    params: {
+      q: '',
+      country: 'in',
+      language: 'en',
+      limit: '10'
     }
   }
 };
@@ -533,16 +533,22 @@ async function fetchFromRapidAPI(site: string, query: string, page: number = 1) 
       throw new Error(`No configuration found for site: ${site}`);
     }
 
+    const queryKey = config.params.hasOwnProperty('q') ? 'q' : 'query';
     const params = {
       ...config.params,
-      query: site === 'productSearch' ? query : query,
+      [queryKey]: query,
       page: page.toString()
     };
 
+    const apiKey = (config as any).apiKeyEnv 
+      ? process.env[(config as any).apiKeyEnv] 
+      : process.env.RAPIDAPI_KEY;
+
     const response = await axios.get(config.url, {
       params,
+      timeout: API_TIMEOUT,
       headers: {
-        'X-RapidAPI-Key': process.env.RAPIDAPI_KEY || '',
+        'X-RapidAPI-Key': apiKey || '',
         'X-RapidAPI-Host': new URL(config.url).host
       }
     });
@@ -577,29 +583,18 @@ async function fetchFromRapidAPI(site: string, query: string, page: number = 1) 
           site: 'Amazon'
         };
       }) || [];
-    } else if (site === 'flipkart') {
+    } else if (site === 'productSearch' || site === 'megaProductSearch') {
       products = response.data.data?.products?.map((p: any) => {
-        const price = parseFloat(p.product_price?.replace(/[^0-9.]/g, '')) || 0;
-        const originalPrice = parseFloat(p.product_original_price?.replace(/[^0-9.]/g, '')) || 0;
-
+        const price = parseFloat(p.price?.replace(/[^0-9.]/g, '')) || 0;
         return {
-          name: p.product_name || 'Unknown Product',
+          name: p.title || 'Unknown Product',
           price: price,
-          imageUrl: p.product_image || '/placeholder.svg',
-          url: normalizeUrl(p.product_url || '#', 'https://www.flipkart.com'),
-          rating: parseFloat(p.product_rating) || 0,
-          reviews: parseInt(p.product_reviews) || 0,
-          description: p.product_description || '',
-          brand: p.product_brand || '',
-          category: p.product_category || '',
-          specifications: p.product_specifications || '',
-          originalPrice: originalPrice,
-          discount: originalPrice > 0 ? ((originalPrice - price) / originalPrice * 100) : 0,
-          seller: p.product_seller || '',
-          shipping: p.product_shipping || '',
-          inStock: p.product_in_stock || false,
+          imageUrl: p.image || '/placeholder.svg',
+          url: normalizeUrl(p.link || '#', 'https://google.com'),
+          rating: p.rating || 0,
+          reviews: p.reviews_count || 0,
+          site: p.store || 'Google Shopping',
           lastUpdated: new Date().toISOString(),
-          site: 'Flipkart'
         };
       }) || [];
     }
@@ -666,47 +661,52 @@ export async function compareProducts(
 
   let allProducts: ScrapedProduct[] = [];
 
-  // Speed up by running primary APIs concurrently and streaming as they finish
-  console.log('Fetching from primary APIs concurrently...');
-  
-  const handleChunk = (chunk: ScrapedProduct[]) => {
-    if (chunk && chunk.length > 0) {
-      allProducts = [...allProducts, ...chunk];
-      if (onProgress) {
-        // Group the currently available products and emit them
-        const partialGrouped = groupSimilarProducts(allProducts);
-        onProgress(partialGrouped);
+  // Track unique products by name/price to avoid duplicates while fetching
+  const seenKeys = new Set<string>();
+  const addProducts = (newProducts: any[]) => {
+    newProducts.forEach(p => {
+      const key = `${p.name}-${p.price}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        allProducts.push(p);
       }
+    });
+    if (onProgress) {
+      onProgress(groupSimilarProducts(allProducts));
     }
   };
 
-  await Promise.allSettled([
-    fetchFromSerpAPI(query, page).then(handleChunk).catch(e => console.error("API error", e)),
-    fetchFromRapidAPI('amazon', query, page).then(handleChunk).catch(e => console.error("API error", e)),
-    fetchFromRapidAPI('flipkart', query, page).then(handleChunk).catch(e => console.error("API error", e))
+  const handleChunk = (chunk: ScrapedProduct[]) => {
+    if (chunk && chunk.length > 0) {
+      addProducts(chunk);
+    }
+  };
+
+  // Run primary APIs in parallel, but don't wait for SerpAPI if others finish quickly
+  const primaryPromises = [
+    fetchFromSerpAPI(query, page).then(handleChunk).catch(e => console.warn("SerpAPI slow/failed")),
+    fetchFromRapidAPI('amazon', query, page).then(handleChunk).catch(e => console.warn("Amazon slow/failed")),
+    fetchFromRapidAPI('flipkart', query, page).then(handleChunk).catch(e => console.warn("Flipkart slow/failed")),
+    fetchFromRapidAPI('productSearch', query, page).then(handleChunk).catch(e => console.warn("ProductSearch slow/failed")),
+    fetchFromRapidAPI('megaProductSearch', query, page).then(handleChunk).catch(e => console.warn("MegaProductSearch slow/failed"))
+  ];
+
+  // Wait for at least 1 fast API to finish, then cap additional wait at 3 seconds
+  await Promise.race([
+    Promise.allSettled(primaryPromises),
+    new Promise(resolve => setTimeout(resolve, 3000)) // Cap the wait at 3 seconds for Thunder Speed
   ]);
 
-  console.log(`Found ${allProducts.length} products from concurrent APIs.`);
+  console.log(`Found ${allProducts.length} products from primary APIs.`);
 
-  // If we still found nothing, fall back to sequential slower fallbacks
-  if (allProducts.length === 0) {
-    console.log('Trying ScraperAPI fallback...');
-    const scraperProducts = await fetchFromScraperAPI(query, page);
-    allProducts = [...allProducts, ...scraperProducts];
-  }
-
-  // Try ScrapingBee as secondary fallback
-  if (allProducts.length === 0) {
-    console.log('Trying ScrapingBee fallback...');
-    const scrapingBeeProducts = await fetchFromScrapingBee('amazon', query); // Just passing 'amazon' as default to scrape config
-    allProducts = [...allProducts, ...scrapingBeeProducts];
-  }
-
-  // Try ZenRows as last resort
-  if (allProducts.length === 0) {
-    console.log('Trying ZenRows fallback...');
-    const zenRowsProducts = await fetchFromZenRows('amazon', query);
-    allProducts = [...allProducts, ...zenRowsProducts];
+  // If we still found nothing or very few (under 2), run fallbacks in parallel immediately
+  if (allProducts.length < 2) {
+    console.log('Running faster fallbacks in parallel...');
+    await Promise.allSettled([
+      fetchFromScraperAPI(query, page).then(handleChunk).catch(e => console.warn("ScraperAPI error")),
+      fetchFromScrapingBee('amazon', query).then(handleChunk).catch(e => console.warn("ScrapingBee error")),
+      fetchFromZenRows('amazon', query).then(handleChunk).catch(e => console.warn("ZenRows error"))
+    ]);
   }
 
   // If no products found, use fallback data
@@ -747,16 +747,14 @@ export async function compareProducts(
   return groupedProducts;
 }
 
-// Enqueue scraping instead of running it directly
+// Enqueue scraping; falls back to direct execution when Redis is unavailable
 export async function enqueueScraping(query: string, page: number = 1) {
-  // Rate limiting logic for Server Actions
   const headersList = headers();
   const adminKey = headersList.get('x-admin-key');
   const isAdmin = adminKey === process.env.ADMIN_API_KEY && !!process.env.ADMIN_API_KEY;
 
   if (!isAdmin && await isDemoModeEnabled()) {
     const ip = headersList.get('x-forwarded-for') || headersList.get('x-real-ip') || '127.0.0.1';
-    // 3 requests per hour (3600 seconds) for Search
     const result = await checkRateLimit(ip, 'search', 3, 3600);
     if (!result.success) {
       console.log(`Rate limit exceeded for search by IP: ${ip}`);
@@ -764,12 +762,18 @@ export async function enqueueScraping(query: string, page: number = 1) {
     }
   }
 
+  const redisOk = await isRedisAvailable();
+  if (!redisOk) {
+    console.warn('[Search] Redis unavailable, running search directly');
+    return { success: true, useDirect: true as const };
+  }
+
   try {
     const job = await enqueueScrapeJob(query);
-    return { success: true, jobId: job.id };
+    return { success: true, jobId: job.id as string, useDirect: false as const };
   } catch (error) {
-    console.error('Failed to enqueue scrape job:', error);
-    return { success: false, error: 'Failed to start search' };
+    console.error('Failed to enqueue scrape job, falling back to direct search:', error);
+    return { success: true, useDirect: true as const };
   }
 }
 
@@ -786,7 +790,8 @@ async function fetchFromSerpAPI(query: string, page: number = 1) {
         hl: 'en',
         tbm: 'shop',
         num: 40
-      }
+      },
+      timeout: API_TIMEOUT,
     });
 
     if (!response.data?.shopping_results) {
@@ -851,7 +856,8 @@ async function fetchFromScraperAPI(query: string, page: number = 1) {
         premium: true,
         retry: 3,
         timeout: 30000
-      }
+      },
+      timeout: API_TIMEOUT,
     });
 
     const $ = cheerio.load(response.data);
@@ -918,7 +924,8 @@ async function fetchFromScrapingBee(site: string, query: string): Promise<Scrape
         url: searchUrl,
         render_js: 'true',
         premium_proxy: 'true'
-      }
+      },
+      timeout: API_TIMEOUT,
     })
 
     if (!response.data) {
@@ -957,7 +964,8 @@ async function fetchFromZenRows(site: string, query: string): Promise<ScrapedPro
         js_render: 'true',
         premium_proxy: 'true',
         antibot: 'true'
-      }
+      },
+      timeout: API_TIMEOUT,
     })
 
     if (!response.data) {
@@ -975,12 +983,12 @@ async function fetchFromZenRows(site: string, query: string): Promise<ScrapedPro
 // Function to extract products from HTML
 function extractProductsFromHtml(html: string, site: string): ScrapedProduct[] {
   const products: ScrapedProduct[] = []
-  const config = SITE_CONFIGS[site as keyof typeof SITE_CONFIGS]
+  const config = SCRAPING_CONFIG[site as keyof typeof SCRAPING_CONFIG]
 
   if (!config) return products
 
   const $ = cheerio.load(html)
-  const productElements = $(config.selectors.product)
+  const productElements = $(config.selectors.products)
 
   productElements.each((_, element) => {
     try {
@@ -1086,5 +1094,5 @@ function generateTestProducts(query: string): ScrapedProduct[] {
     })
   }
 
-  return groupSimilarProducts(testProducts)
+  return testProducts
 }
