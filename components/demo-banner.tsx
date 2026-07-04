@@ -6,7 +6,7 @@ export function DemoBanner() {
       <div className="container mx-auto flex items-center justify-center gap-3 text-sm font-medium">
         <AlertTriangle className="h-4 w-4 animate-pulse" />
         <span>
-          <strong className="font-bold">Demo Mode Enabled:</strong> Search limit: 3 per hour | AI Chat limit: 10 per hour
+          <strong className="font-bold">Demo Mode Enabled:</strong> Search limit: 5 per hour | AI Chat limit: 10 per hour
         </span>
       </div>
     </div>
