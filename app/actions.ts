@@ -1152,7 +1152,7 @@ function filterIrrelevantProducts(products: any[], query: string): any[] {
 
     // 4. Accessory Filtering
     const irrelevantKeywords = ['case', 'cover', 'tempered', 'adapter', 'cable', 'charger', 'strap', 'pouch'];
-    if (irrelevantKeywords.some(key => nameLower.includes(key)) && !queryLower.includes(key)) {
+    if (irrelevantKeywords.some(k => nameLower.includes(k) && !queryLower.includes(k))) {
       return false;
     }
 
